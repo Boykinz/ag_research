@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 import asyncio
+import warnings
+warnings.filterwarnings("ignore")
 
+from transformers import logging
+logging.set_verbosity_error() 
 from autogen_core import (AgentId,
                           MessageContext,
                           RoutedAgent,
@@ -45,12 +49,14 @@ class MyAssistant(RoutedAgent):
 class MyPhiAssistant(RoutedAgent):
     def __init__(self, name: str) -> None:
         super().__init__(name)
-        self.llm = LLM(LLMConfig())
+        self.llm_config = LLMConfig()
+        self.llm = LLM(self.llm_config)
 
     @message_handler
     async def handle_my_message_type(self, message: MyMessageType, ctx: MessageContext) -> None:
         print(f"{self.id.type} received message: {message.content}")
-        response = self.llm(message.content)
+        # response = self.llm(message.content)
+        response = self.llm.__chat_call__(message.content)
         print(f"{self.id.type} responded: {response}")
 
 
@@ -61,8 +67,12 @@ async def main():
     await MyPhiAssistant.register(runtime, "my_assistant", lambda: MyPhiAssistant("my_assistant"))
 
     runtime.start()
-    await runtime.send_message(MyMessageType("Hello, World!"), AgentId("my_agent", "default"))
-    await runtime.send_message(MyMessageType("Hello, World!"), AgentId("my_assistant", "default"))
+    # await runtime.send_message(MyMessageType("Hello, World!"), AgentId("my_agent", "default"))
+
+    content = "Hello!"
+    while content != 'stop':
+        await runtime.send_message(MyMessageType(content), AgentId("my_assistant", "default"))
+        content = input('user: ')
     await runtime.stop()
 
 

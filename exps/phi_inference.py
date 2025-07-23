@@ -18,6 +18,10 @@ class LLM:
         self.model = self.get_model()
         self.tokenizer = self.get_tokenizer()
         self.generator = self.get_generator(**cfg.pipeline_config)
+        self.messages = [{
+                "role": "system",
+                "content": "You are helpfull AI-assistant."
+            }]
 
     def get_model(self, torch_dtype='auto', trust_remote_code=True):
         model = AutoModelForCausalLM.from_pretrained(
@@ -56,15 +60,29 @@ class LLM:
         output = self.generator(messages)
         return output[0]["generated_text"] if return_text else output
 
+    def __chat_call__(self, prompt, return_text=True):
+        self.messages.append(
+            {'role': 'user', 'content': prompt}
+        )
+        output = self.generator(self.messages)
+        generated_text = output[0]["generated_text"]
+        self.messages.append(
+            {'role': 'assistant', 'content': generated_text}
+        )
+        return generated_text if return_text else output
+
 
 class LLMConfig:
     def __init__(self):
-        self.model_name = 'microsoft/Phi-3-mini-4k-instruct'
+        # self.model_name = 'microsoft/Phi-3-mini-4k-instruct'
+        self.model_name = "microsoft/phi-4"
         self.pipeline_config = {
             'task': 'text-generation',
             'return_full_text': False,
-            'max_new_tokens': 500,
-            'do_sample': False
+            # 'max_new_tokens': 500,
+            'max_new_tokens': 16_000,
+            'do_sample': False,
+            'torch_dtype': torch.bfloat16
         }
         self.device = 'cuda:0'
 
@@ -78,5 +96,16 @@ def main(prompt="find x: x^2 - 2*x - 8 = 0"):
     print(f'output: {output}')
 
 
+def chat_main():
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'device: {device}, device count: {torch.cuda.device_count()}')
+    config = LLMConfig()
+    llm = LLM(config)
+    while True:
+        output = llm.__chat_call__(input('user:'))
+        print(f'output: {output}')
+
+
 if __name__ == '__main__':
-    main()
+    # main()
+    chat_main()
